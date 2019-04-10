@@ -103,6 +103,26 @@ def personSaveName(id, name):
     session.commit()
     return jsonify({'code': 0, 'message': 'ok'})
 
+@app.route('/person/saveIntro/<int:id>', methods=['POST'])
+def personSaveIntro(id):
+    session = DBSession()
+    resume = session.query(ResumeItem).filter_by(restaurant_id=id)
+    for i in resume:
+        if i.type == 'Description':
+            i.content = json.loads(request.data)['content']
+            session.commit()
+            return jsonify({'code': 0, 'message': 'ok'})
+        
+@app.route('/person/saveWorkExperience/<int:id>', methods=['POST'])
+def personSaveWorkExperience(id):
+    session = DBSession()
+    resume = session.query(ResumeItem).filter_by(restaurant_id=id)
+    for i in resume:
+        if i.type == 'Work Experience':
+            i.content = json.loads(request.data)['content']
+            session.commit()
+            return jsonify({'code': 0, 'message': 'ok'})
+
 @app.route('/person/resume/<int:resume_id>/JSON')
 @app.route('/person/resume/<int:resume_id>.JSON')
 def resMenuJSON(resume_id):
