@@ -36,6 +36,13 @@ class PersonName(Base):
     
     id = Column(Integer, primary_key=True)
     name = Column(String(250), nullable=False)
+    
+    @property
+    def serialize(self):
+        return {
+            'name': self.name,
+            'id': self.id,
+        }
 
 
 class ResumeItem(Base):
@@ -122,6 +129,13 @@ def personSaveWorkExperience(id):
             i.content = json.loads(request.data)['content']
             session.commit()
             return jsonify({'code': 0, 'message': 'ok'})
+        
+@app.route('/person/list/JSON')
+def personList():
+    session = DBSession()
+    person = session.query(PersonName).all()
+    print person
+    return jsonify(personList=[i.serialize for i in person], code=0)
 
 @app.route('/person/resume/<int:resume_id>/JSON')
 @app.route('/person/resume/<int:resume_id>.JSON')
@@ -131,62 +145,37 @@ def resMenuJSON(resume_id):
     return jsonify(ResumeItem=menu.serialize)
 
 
-@app.route('/login', methods=['GET'])
-def login():
-    state = ''.join(
-        random.choice(
-            string.ascii_uppercase + string.digits) for x in xrange(32))
-    login_session['state'] = state
-    return render_template('login.html', STATE=state)
-
-
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
-    if request.args.get('state') != login_session['state']:
-        response = make_response(json.dumps('Invalid state'), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
-    else:
-        code = request.data
-        url = 'https://github.com/login/oauth/access_token?client_id='\
-              + client_id\
-              + '&client_secret=' + client_secret\
-              + '&code=' + code
-        access_token = requests.get(url).content.split('&')[0].split('=')[1]
-        user_info = requests.get(
-            'https://api.github.com/user?access_token=%s' % access_token)\
-            .json()
-        login_session['access_token'] = access_token
-        login_session['username'] = user_info["login"]
-        login_session['picture'] = user_info["avatar_url"]
-        login_session['email'] = user_info["email"]
-        login_session['bio'] = user_info["bio"]
-        flash("You are now logged in as %s" % login_session['username'])
-        return 'OK'
+    code = json.loads(request.data)['code']
+    url = 'https://github.com/login/oauth/access_token?client_id='\
+          + client_id\
+          + '&client_secret=' + client_secret\
+          + '&code=' + code
+    
+    access_token = requests.get(url).content.split('&')[0].split('=')[1]
+    user_info = requests.get(
+        'https://api.github.com/user?access_token=%s' % access_token)\
+        .json()
+    login_session['access_token'] = access_token
+    login_session['username'] = user_info["login"]
+    login_session['picture'] = user_info["avatar_url"]
+    login_session['email'] = user_info["email"]
+    login_session['bio'] = user_info["bio"]
+    
+    return jsonify({'code': 0, 'message': 'ok', 'username': login_session['username']})
 
 
-@app.route('/gdisconnect')
 @app.route('/logout')
-def gdisconnect():
-    if login_session['access_token'] is None:
-        print 'Access Token is None'
-        response = make_response(json.dumps('User not connected.'), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
-    else:
-        print 'In access token is %s', login_session['access_token']
-        print 'User name is: '
-        print login_session['username']
-        # TODO: delete access_token in github
-        del login_session['access_token']
-        del login_session['username']
-        del login_session['picture']
-        del login_session['email']
-        del login_session['bio']
-        flash("You are now logout ")
-        return redirect(url_for('all'))
+def logout():
+    del login_session['access_token']
+    del login_session['username']
+    del login_session['picture']
+    del login_session['email']
+    del login_session['bio']
+    return jsonify({'code': 0, 'message': 'ok'})
 
 
 if __name__ == '__main__':
     app.secret_key = 'secure key'
-    app.run(host='0.0.0.0', port=5001)
+    app.run(host='0.0.0.0', port=5000)
